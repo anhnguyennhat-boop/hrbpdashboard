@@ -15,6 +15,46 @@
   <!-- PapaParse CDN (5.4.1) included above -->
 </head>
 <body>
+  <div id="debug-log-panel" style="background:#111; color:#fff; border:2px solid #ff5722; padding:15px; font-family:monospace; font-size:12px; margin:20px; max-height:250px; overflow-y:auto; border-radius:8px;">
+    <h3 style="color:#ff5722; margin-top:0;">⚠️ Live Debug Console (Errors will show here):</h3>
+    <div id="debug-log-content"></div>
+  </div>
+  <script>
+    (function() {
+      const content = document.getElementById('debug-log-content');
+      function logToScreen(msg, color = '#fff') {
+        const p = document.createElement('p');
+        p.style.color = color;
+        p.style.margin = '4px 0';
+        p.style.borderBottom = '1px solid #222';
+        p.style.paddingBottom = '2px';
+        p.textContent = msg;
+        content.appendChild(p);
+      }
+      
+      // Intercept console.log
+      const orgLog = console.log;
+      console.log = function(...args) {
+        orgLog.apply(console, args);
+        logToScreen('[LOG] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '), '#64b5f6');
+      };
+
+      // Intercept console.error
+      const orgError = console.error;
+      console.error = function(...args) {
+        orgError.apply(console, args);
+        logToScreen('[ERROR] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), '#e57373');
+      };
+
+      window.addEventListener('error', function(e) {
+        logToScreen('[CRASH] ' + e.message + ' at ' + e.filename + ':' + e.lineno + ':' + e.colno, '#f44336');
+      });
+
+      window.addEventListener('unhandledrejection', function(e) {
+        logToScreen('[REJECTION] ' + e.reason + (e.reason && e.reason.stack ? '\n' + e.reason.stack : ''), '#ffb74d');
+      });
+    })();
+  </script>
   <header class="header">
     <h1>Disciplinary Case Tracking Dashboard</h1>
   </header>

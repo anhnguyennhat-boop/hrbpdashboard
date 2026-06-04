@@ -214,11 +214,11 @@ function initFilters() {
 
 function renderFilterPanel() {
   const panels = [
-    { id: "filter-area", label: "Area", set: filters.area },
-    { id: "filter-dept", label: "Department", set: filters.department },
-    { id: "filter-designation", label: "Designation", set: filters.designation },
-    { id: "filter-severity", label: "Severity", set: filters.severity },
-    { id: "filter-status", label: "Status", set: filters.status },
+    { id: "filter-area", key: "area", label: "Area", set: filters.area },
+    { id: "filter-dept", key: "department", label: "Department", set: filters.department },
+    { id: "filter-designation", key: "designation", label: "Designation", set: filters.designation },
+    { id: "filter-severity", key: "severity", label: "Severity", set: filters.severity },
+    { id: "filter-status", key: "status", label: "Status", set: filters.status },
   ];
   
   panels.forEach((p) => {
@@ -234,8 +234,7 @@ function renderFilterPanel() {
       checkbox.value = val;
       
       checkbox.addEventListener("change", () => {
-        const filterKey = p.id.split("-")[1]; // area, dept, etc.
-        const set = activeFilters[filterKey];
+        const set = activeFilters[p.key];
         if (checkbox.checked) set.add(val);
         else set.delete(val);
         renderAll();
