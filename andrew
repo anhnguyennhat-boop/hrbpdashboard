@@ -1,0 +1,9 @@
+cd /Users/macbok/.gemini/scratch/disciplinary_dashboard
+
+# Initialise git and point to the remote you just created
+git init
+git add .
+git commit -m "Initial commit – disciplinary case dashboard"
+git remote add origin https://github.com/<YOUR_USERNAME>/disciplinary-dashboard.git
+git branch -M main
+git push -u origin main
