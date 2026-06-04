@@ -9,10 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <!-- PapaParse CDN (5.4.1) included above -->
+  <!-- PapaParse CDN for Google Sheets CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
   <div id="debug-log-panel" style="background:#111; color:#fff; border:2px solid #ff5722; padding:15px; font-family:monospace; font-size:12px; margin:20px; max-height:250px; overflow-y:auto; border-radius:8px;">
@@ -87,9 +85,18 @@
         </table>
       </section>
       <section class="charts" id="charts">
-        <div class="chart-container"><canvas id="trendChart"></canvas></div>
-        <div class="chart-container"><canvas id="severityChart"></canvas></div>
-        <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+        <div class="chart-card">
+          <h3>Cases per Month</h3>
+          <div id="trendChartContainer" class="svg-chart-container"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Severity Distribution</h3>
+          <div id="severityChartContainer" class="svg-chart-container"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Top Violations</h3>
+          <div id="categoryChartContainer" class="bar-chart-container"></div>
+        </div>
       </section>
     </section>
   </main>

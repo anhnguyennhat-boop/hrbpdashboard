@@ -30,10 +30,7 @@ let activeFilters = {
   status: new Set(),
 };
 
-// Global Chart instances to avoid "Canvas is already in use" errors
-let trendChartInstance = null;
-let severityChartInstance = null;
-let categoryChartInstance = null;
+// No global Chart.js instances needed since we render SVG charts directly.
 
 // ==== UTILS ====
 function parseDate(str) {
@@ -333,12 +330,16 @@ function renderTable(data) {
 }
 
 function renderCharts(data) {
-  // Destroy previous Chart instances to prevent canvas re-use conflicts
-  if (trendChartInstance) trendChartInstance.destroy();
-  if (severityChartInstance) severityChartInstance.destroy();
-  if (categoryChartInstance) categoryChartInstance.destroy();
+  renderTrendChart(data);
+  renderSeverityChart(data);
+  renderCategoryChart(data);
+}
 
-  // 1. Trend over time (cases per month)
+function renderTrendChart(data) {
+  const container = document.getElementById("trendChartContainer");
+  if (!container) return;
+  container.innerHTML = "";
+  
   const byMonth = {};
   data.forEach((r) => {
     const d = parseDate(r.lastAction);
@@ -349,54 +350,146 @@ function renderCharts(data) {
   const months = Object.keys(byMonth).sort();
   const counts = months.map((m) => byMonth[m]);
   
-  const trendCtx = document.getElementById("trendChart");
-  if (trendCtx) {
-    trendChartInstance = new Chart(trendCtx.getContext("2d"), {
-      type: "line",
-      data: {
-        labels: months,
-        datasets: [{ 
-          label: "Cases per month", 
-          data: counts, 
-          borderColor: "#2196f3", 
-          backgroundColor: "rgba(33,150,243,0.1)", 
-          tension: 0.3,
-          fill: true
-        }],
-      },
-      options: { 
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } } 
-      },
-    });
+  if (months.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--color-muted);padding-top:80px;">No data</div>`;
+    return;
   }
+  
+  const width = 350;
+  const height = 150;
+  const padLeft = 30;
+  const padRight = 10;
+  const padTop = 15;
+  const padBottom = 20;
+  
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+  
+  const maxVal = Math.max(...counts, 1);
+  const minVal = 0;
+  const valRange = maxVal - minVal;
+  
+  const points = [];
+  months.forEach((m, idx) => {
+    const x = padLeft + (idx / Math.max(months.length - 1, 1)) * chartW;
+    const y = padTop + chartH - ((counts[idx] - minVal) / valRange) * chartH;
+    points.push({ x, y, val: counts[idx], label: m });
+  });
+  
+  const pathD = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const areaD = pathD + ` L ${points[points.length-1].x.toFixed(1)} ${(padTop + chartH).toFixed(1)} L ${points[0].x.toFixed(1)} ${(padTop + chartH).toFixed(1)} Z`;
+  
+  let xLabels = "";
+  let yGrid = "";
+  let pointsHTML = "";
+  
+  for (let i = 0; i <= 2; i++) {
+    const val = Math.round(minVal + (i / 2) * valRange);
+    const y = padTop + chartH - (i / 2) * chartH;
+    yGrid += `
+      <line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 2" />
+      <text x="${padLeft - 5}" y="${y + 4}" fill="var(--color-muted)" font-size="9" text-anchor="end">${val}</text>
+    `;
+  }
+  
+  months.forEach((m, idx) => {
+    if (idx === 0 || idx === months.length - 1 || (months.length > 5 && idx === Math.floor(months.length / 2))) {
+      const p = points[idx];
+      const dateParts = m.split("-");
+      const displayLabel = dateParts.length === 2 ? `${dateParts[1]}/${dateParts[0].slice(2)}` : m;
+      xLabels += `<text x="${p.x}" y="${height - 4}" fill="var(--color-muted)" font-size="9" text-anchor="middle">${displayLabel}</text>`;
+    }
+    
+    const p = points[idx];
+    pointsHTML += `
+      <circle cx="${p.x}" cy="${p.y}" r="3.5" fill="var(--color-primary)" class="chart-dot">
+        <title>${p.label}: ${p.val} cases</title>
+      </circle>
+    `;
+  });
+  
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" class="svg-line-chart">
+      <defs>
+        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--color-primary)" stop-opacity="0.2" />
+          <stop offset="100%" stop-color="var(--color-primary)" stop-opacity="0.0" />
+        </linearGradient>
+      </defs>
+      ${yGrid}
+      <path d="${areaD}" fill="url(#areaGradient)" />
+      <path d="${pathD}" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      ${pointsHTML}
+      ${xLabels}
+    </svg>
+  `;
+}
 
-  // 2. Severity distribution doughnut
+function renderSeverityChart(data) {
+  const container = document.getElementById("severityChartContainer");
+  if (!container) return;
+  container.innerHTML = "";
+  
   const sevCounts = { Minor: 0, Significant: 0, Severe: 0 };
   data.forEach((r) => (sevCounts[r.severity] = (sevCounts[r.severity] || 0) + 1));
   
-  const sevCtx = document.getElementById("severityChart");
-  if (sevCtx) {
-    severityChartInstance = new Chart(sevCtx.getContext("2d"), {
-      type: "doughnut",
-      data: {
-        labels: ["Minor", "Significant", "Severe"],
-        datasets: [{ 
-          data: [sevCounts.Minor, sevCounts.Significant, sevCounts.Severe], 
-          backgroundColor: ["#4caf50", "#ff9800", "#f44336"],
-          borderWidth: 0
-        }],
-      },
-      options: { 
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "right" } } 
-      },
-    });
+  const total = sevCounts.Minor + sevCounts.Significant + sevCounts.Severe;
+  if (total === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--color-muted);padding-top:80px;">No data</div>`;
+    return;
   }
+  
+  const minorPct = (sevCounts.Minor / total) * 100;
+  const sigPct = (sevCounts.Significant / total) * 100;
+  const sevPct = (sevCounts.Severe / total) * 100;
+  
+  const R = 40;
+  const C = 2 * Math.PI * R;
+  let currentOffset = 0;
+  
+  const makeSegment = (pct, color, label) => {
+    if (pct === 0) return "";
+    const strokeLength = (pct / 100) * C;
+    const strokeOffset = C - strokeLength + currentOffset;
+    currentOffset += strokeLength;
+    return `<circle cx="50" cy="50" r="${R}" 
+      fill="transparent" 
+      stroke="${color}" 
+      stroke-width="12" 
+      stroke-dasharray="${strokeLength} ${C - strokeLength}" 
+      stroke-dashoffset="${strokeOffset}" 
+      transform="rotate(-90 50 50)"
+      class="doughnut-segment">
+      <title>${label}: ${pct.toFixed(1)}%</title>
+    </circle>`;
+  };
+  
+  const minorSeg = makeSegment(minorPct, "var(--color-success)", "Minor");
+  const sigSeg = makeSegment(sigPct, "var(--color-warning)", "Significant");
+  const sevSeg = makeSegment(sevPct, "var(--color-danger)", "Severe");
+  
+  container.innerHTML = `
+    <div class="doughnut-wrapper">
+      <svg viewBox="0 0 100 100" class="svg-doughnut">
+        ${minorSeg}
+        ${sigSeg}
+        ${sevSeg}
+        <circle cx="50" cy="50" r="28" fill="var(--color-bg)" />
+      </svg>
+      <div class="doughnut-legend">
+        <div class="legend-item"><span class="dot" style="background:var(--color-success)"></span>Minor: ${sevCounts.Minor}</div>
+        <div class="legend-item"><span class="dot" style="background:var(--color-warning)"></span>Significant: ${sevCounts.Significant}</div>
+        <div class="legend-item"><span class="dot" style="background:var(--color-danger)"></span>Severe: ${sevCounts.Severe}</div>
+      </div>
+    </div>
+  `;
+}
 
-  // 3. Top Violation categories bar chart
+function renderCategoryChart(data) {
+  const container = document.getElementById("categoryChartContainer");
+  if (!container) return;
+  container.innerHTML = "";
+  
   const violCounts = {};
   data.forEach((r) => {
     const v = r.violation || "(none)";
@@ -404,26 +497,26 @@ function renderCharts(data) {
   });
   const topViol = Object.entries(violCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
   
-  const catCtx = document.getElementById("categoryChart");
-  if (catCtx) {
-    categoryChartInstance = new Chart(catCtx.getContext("2d"), {
-      type: "bar",
-      data: {
-        labels: topViol.map((t) => t[0]),
-        datasets: [{ 
-          label: "Top Violations", 
-          data: topViol.map((t) => t[1]), 
-          backgroundColor: "#2196f3" 
-        }],
-      },
-      options: { 
-        indexAxis: "y", 
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } }
-      },
-    });
+  if (topViol.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--color-muted);padding-top:80px;">No data</div>`;
+    return;
   }
+  
+  const maxVal = Math.max(...topViol.map(t => t[1]));
+  
+  topViol.forEach(([label, value]) => {
+    const pct = maxVal > 0 ? (value / maxVal) * 100 : 0;
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <div class="bar-label" title="${label}">${label}</div>
+      <div class="bar-wrapper">
+        <div class="bar-fill" style="width: ${pct}%"></div>
+      </div>
+      <div class="bar-value">${value}</div>
+    `;
+    container.appendChild(row);
+  });
 }
 
 // ==== INIT ====
