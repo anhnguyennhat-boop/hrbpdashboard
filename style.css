@@ -76,7 +76,18 @@ body {
 .severity-severe { background: rgba(255,0,0,0.2); color: var(--color-danger); }
 
 .charts { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:1rem; }
-canvas { background: var(--color-surface); border-radius: var(--radius); padding:0.5rem; }
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+canvas {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding:0.5rem;
+  width: 100% !important;
+  height: 100% !important;
+}
 
 @media (max-width: 900px) {
   .container { flex-direction: column; }
